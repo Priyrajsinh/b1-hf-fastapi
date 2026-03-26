@@ -117,3 +117,63 @@
 - Next step: Implement `SentimentClassifier` training loop with HuggingFace `Trainer` API (Day 2).
 
 ---
+
+#### Sub-task B — CI fix: mypy missing stubs
+
+**What:** CI failed on `mypy type check` — `import-untyped` error for `yaml` in both `dataset.py` and `preprocessing.py`.
+
+**Why:** `pyyaml` was added to `requirements.txt` but `types-PyYAML` (the mypy stub package) was missing from `requirements-dev.txt`. The local venv had it as a transitive dep; CI did not.
+
+**Fix:** Added `types-PyYAML` to `requirements-dev.txt`. All 11 CI steps now pass.
+
+**Lesson:** Whenever you add a third-party library, also add its `types-*` stub to dev deps so CI mypy matches local mypy.
+
+---
+
+#### Sub-task C — Remove AI attribution from git history
+
+**What:** `claude Claude` appeared as a GitHub contributor because earlier commits contained `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailers.
+
+**Fix:** `FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'sed "/noreply@anthropic.com/d"' -- --all` rewrote all 13 commits. Backup refs (`refs/original/`) deleted. Force-pushed to origin.
+
+**Lesson:** `git filter-branch --msg-filter` rewrites commit message text for every commit in history. The backup in `refs/original/` must be manually deleted afterwards or `git log --all` will still show the old commits.
+
+---
+
+#### Sub-task D — Repo rename
+
+**What:** Renamed from `b1-hf-fastapi` → `distilbert-emotion-classifier-fastapi`.
+
+**Files changed:** `pyproject.toml` (`name =`), `Makefile` (docker image tag). GitHub renamed via Settings UI. Local remote updated with `git remote set-url`.
+
+**Lesson:** GitHub repo rename automatically redirects old URLs, but the local `.git/config` remote URL must be updated manually with `git remote set-url origin <new-url>`.
+
+---
+
+#### Sub-task E — Real data pipeline run + verification
+
+**What:** Executed `load_goemotions()` + `stratified_split()` on real GoEmotions data to generate the required artefacts.
+
+**Real data stats (45,446 samples after single-label filter):**
+| Class | Count | % | Weight |
+|-------|-------|---|--------|
+| neutral | 16,021 | 35.3% | 0.41 |
+| joy | 8,295 | 18.3% | 0.78 |
+| anger | 7,148 | 15.7% | 0.91 |
+| surprise | 5,662 | 12.5% | 1.15 |
+| sadness | 3,439 | 7.6% | 1.89 |
+| fear | 3,236 | 7.1% | 2.01 |
+| disgust | 1,645 | 3.6% | 3.95 |
+
+**Text length:** mean 67 chars, std 37, p95 131 — fits comfortably in `max_seq_len=128` tokens.
+
+**Split:** train 36,356 / val 4,545 / test 4,545.
+
+**Final checklist:**
+- [x] `data/raw/checksums.json` exists
+- [x] `data/processed/train.csv`, `val.csv`, `test.csv` exist
+- [x] 27/27 tests pass, 93.5% coverage
+- [x] `bandit -r src/ -ll` — No issues identified
+- [x] All commits pushed, CI green
+
+---
