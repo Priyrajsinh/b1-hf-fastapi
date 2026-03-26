@@ -34,20 +34,19 @@ def get_logger(name: str) -> logging.Logger:
 
     env = os.environ.get("ENV", "development")
 
+    handler = logging.StreamHandler()
+    formatter: logging.Formatter
     if env == "production":
         from pythonjsonlogger import jsonlogger
 
-        handler = logging.StreamHandler()
         formatter = jsonlogger.JsonFormatter(
             "%(asctime)s %(levelname)s %(name)s %(message)s"
         )
-        handler.setFormatter(formatter)
     else:
-        handler = logging.StreamHandler()
         formatter = logging.Formatter(
             "%(asctime)s | %(levelname)-8s | %(name)s - %(message)s"
         )
-        handler.setFormatter(formatter)
+    handler.setFormatter(formatter)
 
     logger.addHandler(handler)
     return logger
