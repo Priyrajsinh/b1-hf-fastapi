@@ -16,6 +16,7 @@ detect-secrets
 scikit-learn
 pandas
 numpy
+pyyaml
 psutil
 httpx
 pytest-asyncio
