@@ -2,6 +2,7 @@ black
 flake8
 isort
 mypy
+types-PyYAML
 pytest
 pytest-cov
 radon
