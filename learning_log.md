@@ -229,3 +229,51 @@
 - Next step: Build FastAPI `/predict` endpoint + Gradio demo (Day 3).
 
 ---
+
+## Day 3 — 2026-03-28 — Evaluation pipeline, confusion matrix, zero-shot comparison, and data-pipeline bug discovery
+> Project: B1-HuggingFace-FastAPI
+
+### What was done
+- Fixed `id2label` / `label2id` in `SentimentClassifier`: now set correctly in `__init__`, `save()`, and `load()` so external `pipeline()` users see real emotion names in `config.json`.
+- Wrote `src/evaluation/evaluate.py`: batched fine-tuned inference on 4 545 test samples, seaborn confusion-matrix heatmap, zero-shot benchmark (bhadresh-savani, 200 samples), `reports/results.json`, MLflow logging.
+- Results: fine-tuned weighted-F1 **0.584** vs zero-shot **0.160** → delta +0.424.
+- Added `seaborn` and `matplotlib` to `requirements.txt`.
+- **Discovered root bug**: `GOEMOTION_TO_MACRO` in `src/data/load_raw.py` used wrong GoEmotions *simplified* label indices (e.g. `2: 0, # amusement` but simplified label 2 is **anger**), so class 0 was trained on angry texts while `config.yaml` says class 0 = joy.
+
+### Why it was done
+- Day 3 goal: quantify how well fine-tuning helped vs. a zero-shot baseline; produce artefacts (confusion matrix, JSON report) for the portfolio.
+- The `id2label` fix is required so any downstream consumer using `AutoModelForSequenceClassification` + `pipeline()` gets correct string labels out of the box.
+
+### How it was done
+- `id2label` fix: build `{i: label}` dict from `self.label_names` and assign to `self.model.config.id2label` after each `from_pretrained` call (in `__init__`, `load`, and before `save_pretrained` in `save`).
+- Evaluation: `classifier.predict()` called in batches of 64 (one huge batch OOM'd on CPU); `sklearn` metrics on string labels; `seaborn.heatmap` for confusion matrix; `mlflow.log_metrics` + `log_artifact`.
+- Zero-shot: loaded `bhadresh-savani/distilbert-base-uncased-emotion` via `pipeline('text-classification')`; filtered neutral class out; evaluated on 200 samples.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| seaborn heatmap | One-line annotated heatmap, publication-quality defaults | matplotlib imshow | Requires manual annotation loop, axis labels, colorbar |
+| sklearn classification_report | Per-class precision/recall/F1 + support in one call | manual loops | Verbose and error-prone |
+| bhadresh-savani zero-shot | Pretrained on GoEmotions 6-class, identical domain | facebook/bart-large-mnli | BART zero-shot needs manual label strings, slower, different domain |
+| mlflow.log_artifact | Tracks PNG + JSON alongside metrics in one experiment | manual file copy | Artifacts disconnected from run metadata |
+
+### Definitions (plain English)
+- **Confusion matrix**: Table where row = true label, column = predicted label; diagonal = correct predictions; off-diagonal = mistakes.
+- **Weighted F1**: Average F1 score where each class is weighted by how many samples it has — prevents large classes from masking bad performance on small ones.
+- **Zero-shot baseline**: Using a model that was never fine-tuned on your specific task/split — sets a lower bound for how much fine-tuning helped.
+- **GOEMOTION_TO_MACRO bug**: The mapping dict used wrong integer indices for GoEmotions *simplified* split (e.g., thought index 14 = "joy" but it's actually "fear") — causing training labels to be shuffled w.r.t. emotion names.
+- **delta_f1**: Difference between fine-tuned and zero-shot weighted F1 — positive means fine-tuning helped.
+
+### Real-world use case
+- Confusion matrices are standard in NLP model cards (e.g. Hugging Face model pages) to show which classes a model confuses most — helps users decide if the model is suitable for their domain.
+- Zero-shot comparison is used in every NLP paper to show "baseline without fine-tuning" (e.g. GPT-4 zero-shot vs. fine-tuned smaller model).
+
+### How to remember it
+- **"Confusion matrix diagonal = correct, off-diagonal = confusion"** — imagine the matrix as a receipt: everything on the diagonal is what you ordered, everything else is a wrong item.
+- **Bug mnemonic**: "GOEMOTION_TO_MACRO was written in the wrong column" — the author's emotion-name comments were right, but the integer keys were off because the GoEmotions simplified split re-orders labels alphabetically.
+
+### Status
+- [x] Done
+- Next step: Fix `GOEMOTION_TO_MACRO` indices in `src/data/load_raw.py` to use correct GoEmotions simplified label integers; regenerate splits; retrain model (Day 4).
+
+---

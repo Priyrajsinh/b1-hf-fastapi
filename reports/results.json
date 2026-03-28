@@ -1,0 +1,14 @@
+{
+  "finetuned": {
+    "accuracy": 0.5823982398239824,
+    "weighted_f1": 0.5844049858860629,
+    "report": "              precision    recall  f1-score   support\n\n         joy       0.65      0.41      0.51       715\n     sadness       0.41      0.65      0.50       164\n       anger       0.38      0.52      0.44       324\n        fear       0.51      0.54      0.52       830\n    surprise       0.67      0.59      0.63      1602\n     disgust       0.41      0.57      0.48       344\n     neutral       0.78      0.86      0.82       566\n\n    accuracy                           0.58      4545\n   macro avg       0.54      0.59      0.56      4545\nweighted avg       0.60      0.58      0.58      4545\n"
+  },
+  "zero_shot": {
+    "accuracy": 0.195,
+    "weighted_f1": 0.16004189090816276,
+    "model_used": "bhadresh-savani/distilbert-base-uncased-emotion",
+    "n_samples": 200
+  },
+  "delta_f1": 0.42436309497790015
+}

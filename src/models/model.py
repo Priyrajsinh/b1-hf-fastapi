@@ -69,6 +69,10 @@ class SentimentClassifier(BaseMLModel):
         label_map: dict = self.config["emotion_labels"]
 
         self.label_names: list[str] = [label_map[i] for i in sorted(label_map)]
+        self.id2label: dict[int, str] = {
+            i: lbl for i, lbl in enumerate(self.label_names)
+        }
+        self.label2id: dict[str, int] = {lbl: i for i, lbl in self.id2label.items()}
         self.max_len: int = training_cfg["max_seq_len"]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -87,6 +91,8 @@ class SentimentClassifier(BaseMLModel):
         self.model = AutoModelForSequenceClassification.from_pretrained(  # nosec B615
             base_model, num_labels=num_labels
         ).to(self.device)
+        self.model.config.id2label = self.id2label
+        self.model.config.label2id = self.label2id
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -236,6 +242,8 @@ class SentimentClassifier(BaseMLModel):
         """
         dest = Path(path)
         dest.mkdir(parents=True, exist_ok=True)
+        self.model.config.id2label = self.id2label
+        self.model.config.label2id = self.label2id
         self.model.save_pretrained(str(dest))
         self.tokenizer.save_pretrained(str(dest))
         logger.info("Model + tokenizer saved to '%s'", dest)
@@ -265,6 +273,8 @@ class SentimentClassifier(BaseMLModel):
         self.model = AutoModelForSequenceClassification.from_pretrained(  # nosec B615
             str(src_path), num_labels=num_labels
         ).to(self.device)
+        self.model.config.id2label = self.id2label
+        self.model.config.label2id = self.label2id
         self.model.eval()
         logger.info("Model loaded — eval mode — device: %s", self.device)
         return self

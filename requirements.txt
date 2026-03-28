@@ -16,6 +16,8 @@ detect-secrets
 scikit-learn
 pandas
 numpy
+seaborn
+matplotlib
 pyyaml
 psutil
 httpx
