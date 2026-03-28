@@ -57,7 +57,9 @@ limiter = Limiter(key_func=get_remote_address)
 # ---------------------------------------------------------------------------
 app = FastAPI(title="Distilbert Emotion Classifier API", version="1.0.0")
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(  # type: ignore[arg-type]
+    RateLimitExceeded, _rate_limit_exceeded_handler
+)
 
 # ---------------------------------------------------------------------------
 # Middleware (exact order from spec)
