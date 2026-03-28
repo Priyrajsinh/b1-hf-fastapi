@@ -369,3 +369,97 @@
 - Next step: Day 5 — Gradio demo UI + Docker containerisation + push to HuggingFace Spaces.
 
 ---
+
+## Day 5 — 2026-03-29 — Gradio demo UI and Docker multi-stage container
+> Project: B1-HuggingFace-FastAPI
+
+### What was done
+- Created `src/api/gradio_demo.py`: Gradio Blocks UI that calls the FastAPI `/predict` endpoint via `httpx`.
+- Added 4 `gr.Examples` covering joy, anger, neutral, and surprise inputs.
+- Wrote multi-stage `Dockerfile`: builder stage installs deps, runtime stage copies app, adds non-root `appuser`.
+- All 59 tests passed at 93% coverage; bandit returned zero medium/high findings.
+- Committed and pushed `feat: Day 5 - Gradio demo, Docker multi-stage`.
+
+### Why it was done
+- Gradio provides an instant browser UI for non-technical stakeholders to test the model without curl commands.
+- Docker containerises the entire app so it runs identically on any machine or cloud environment.
+
+### How it was done
+- `predict_text()` posts to `API_URL` with `httpx.post`, formats confidence as a percentage, sorts all probabilities descending, and returns three strings to Gradio output boxes.
+- Dockerfile Stage 1 (`builder`): `pip install --prefix=/deps` installs into an isolated prefix; Stage 2 (`runtime`) copies `/deps` into `/usr/local` — no build tools survive into the final image.
+- `adduser --disabled-password appuser` + `USER appuser` ensures the container process has no root privileges.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| Gradio Blocks | Composable UI blocks, fine-grained layout control | gr.Interface | Less flexible — can't mix textboxes and buttons freely |
+| httpx (sync) | Already in requirements; clean timeout API | requests | Both fine, httpx is already a dep via FastAPI/TestClient |
+| Multi-stage Dockerfile | Final image has no pip/gcc — smaller and safer | Single-stage | Includes build tools in prod image, larger attack surface |
+| adduser --disabled-password | Non-root process reduces container breakout risk | Running as root | Root in container = root on host if namespace escapes |
+
+### Definitions (plain English)
+- **Gradio Blocks**: A Python API for building web UIs by composing input/output components into a layout — no HTML needed.
+- **Multi-stage Docker build**: Using two `FROM` lines so the first stage compiles/installs and the second stage only copies the finished artifacts — keeps the final image lean.
+- **EXPOSE 8000**: Documents which port the container listens on; doesn't actually open it — `docker run -p 8000:8000` does that.
+- **Non-root user in Docker**: A Unix user with UID > 0 created inside the image so the app process can't modify system files if compromised.
+
+### Real-world use case
+- Hugging Face Spaces uses exactly this pattern: a Gradio app is the public-facing demo, Docker is the deployment unit, and the model API runs as a separate backend service.
+- Every production ML team ships a Docker image to a container registry (ECR, GCR) and a Gradio/Streamlit demo on a Spaces-like platform for internal stakeholder review.
+
+### How to remember it
+- **Multi-stage = chef's kitchen**: the prep kitchen (builder) does all the messy work; only finished plates (binaries + code) go to the dining room (runtime image).
+
+### Status
+- [x] Done
+- Next step: Day 6 — push Docker image to Docker Hub / HuggingFace Spaces deployment.
+
+---
+
+## Day 6 — 2026-03-29 — Tests, lint polish, radon, interrogate, README, green CI
+> Project: B1-HuggingFace-FastAPI
+
+### What was done
+- Verified 8 API tests in `tests/test_api.py` (health, predict, 422, metrics, model_info, docs, trace_id uniqueness) all pass via `FastAPI TestClient` with mocked `SentimentClassifier`.
+- Achieved 93.2% test coverage across all `src/` modules (threshold: 70%).
+- Ran full lint pipeline: `black`, `isort`, `flake8`, `mypy` (0 issues), `bandit` (0 findings), `radon cc` (0 complex functions), `interrogate` (88.8% docstring coverage).
+- Ran `pip-audit`: 0 vulnerabilities (1 CVE-2026-4539 ignored per policy).
+- Wrote `README.md` with live-demo badge, quick-start, mermaid-style architecture diagram, benchmarks table from `reports/results.json`, and references.
+
+### Why it was done
+- Day 6 polish pass to make the project portfolio-ready: a green CI badge, documented README, and clean lint output signal production readiness to recruiters and engineers reviewing the repo.
+
+### How it was done
+- `pytest --cov=src --cov-fail-under=70` confirmed all tests pass before touching anything.
+- Each lint tool run individually in sequence; all returned zero findings without code changes — code was already clean from Days 0–5.
+- `radon cc src/ -nc` checks cyclomatic complexity — `-nc` flag means "only show results for grade C or worse"; empty output = all functions grade A/B.
+- `interrogate src/ --fail-under=80` scans every module, class, and function for missing docstrings.
+- README benchmarks pulled verbatim from `reports/results.json` (fine-tuned: 62.3% F1, zero-shot: 45.7% F1, Δ = +16.6 pp).
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| `radon` | Measures cyclomatic complexity (McCabe score) natively in Python | `wily` | `wily` tracks history but adds complexity for a one-shot check |
+| `interrogate` | Enforces docstring coverage with a configurable pass/fail threshold | `pydocstyle` | `pydocstyle` checks style, not coverage; can't fail CI on missing docstrings |
+| `FastAPI TestClient` | Synchronous ASGI transport; no event loop management needed | `httpx.AsyncClient` | Async client requires `pytest-asyncio` fixtures and is harder to mock startup events |
+| `pip-audit` | Audits PyPI packages against OSV/NVD databases | `safety` | `safety` now requires a paid subscription for the full DB |
+
+### Definitions (plain English)
+- **Cyclomatic complexity**: A count of the number of independent paths through a function — more branches/loops = higher score = harder to test.
+- **Docstring coverage**: The percentage of public modules, classes, and functions that have a docstring comment; `interrogate` measures this.
+- **radon grade A/B**: radon scores functions A (1–5), B (6–10), C (11–15), etc. — grade C or above is a warning; all functions here are A/B.
+- **pip-audit**: A tool that checks installed packages against known CVE databases and exits non-zero if vulnerabilities are found.
+
+### Real-world use case
+- Google's internal style guides mandate docstring coverage checks in pre-submit hooks; `interrogate` is the open-source equivalent used in many ML repos.
+- Cyclomatic complexity checks (`radon`) are standard in banks and healthcare software where regulatory audits require demonstrable code simplicity.
+
+### How to remember it
+- **interrogate = a job interview for your code**: every public function must explain itself or it fails the interview.
+- **radon = brain scanner**: the higher the complexity score, the more tangled the neural pathways — keep it simple.
+
+### Status
+- [x] Done
+- Next step: Add GitHub repo topics (nlp, huggingface, transformers, fastapi, mlops) via the repo Settings gear icon, then push and watch the green CI badge.
+
+---
