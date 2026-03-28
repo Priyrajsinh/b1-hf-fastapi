@@ -13,45 +13,52 @@ from src.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Mapping from GoEmotions 27-label indices to 7 macro-category indices.
+# Mapping from GoEmotions simplified-split label indices to 7 macro-categories.
 # joy=0, sadness=1, anger=2, fear=3, surprise=4, disgust=5, neutral=6
+#
+# Verified GoEmotions simplified indices (2026-03-28):
+#   0:admiration  1:amusement   2:anger       3:annoyance   4:approval
+#   5:caring      6:confusion   7:curiosity   8:desire      9:disappointment
+#  10:disapproval 11:disgust    12:embarrassment 13:excitement 14:fear
+#  15:gratitude  16:grief      17:joy         18:love       19:nervousness
+#  20:optimism   21:pride      22:realization 23:relief     24:remorse
+#  25:sadness    26:surprise   27:neutral
 GOEMOTION_TO_MACRO: dict[int, int] = {
     # Joy cluster
-    2: 0,  # amusement
-    10: 0,  # excitement
-    14: 0,  # joy
-    16: 0,  # love
-    19: 0,  # optimism
+    0: 0,  # admiration -> joy-adjacent
+    1: 0,  # amusement
+    4: 0,  # approval -> positive/joy
+    13: 0,  # excitement
+    15: 0,  # gratitude -> joy
+    17: 0,  # joy
+    18: 0,  # love
+    20: 0,  # optimism
     23: 0,  # relief
     # Sadness cluster
-    11: 1,  # grief
-    17: 1,  # nervousness -> mapped to sadness (closest)
-    22: 1,  # remorse
+    9: 1,  # disappointment
+    16: 1,  # grief
+    24: 1,  # remorse
     25: 1,  # sadness
     # Anger cluster
-    0: 2,  # admiration -> skipped (ambiguous) but kept as placeholder
-    3: 2,  # anger
-    5: 2,  # annoyance
-    6: 2,  # approval -> skipped but kept as placeholder
+    2: 2,  # anger
+    3: 2,  # annoyance
+    10: 2,  # disapproval
+    21: 2,  # pride -> disapproval-adjacent
     # Fear cluster
-    7: 3,  # caring -> closest to fear / concern
-    9: 3,  # embarrassment
-    13: 3,  # fear
+    5: 3,  # caring -> concern/fear-adjacent
+    12: 3,  # embarrassment
+    14: 3,  # fear
+    19: 3,  # nervousness
     # Surprise cluster
-    15: 4,  # curiosity -> surprise family
-    18: 4,  # pride -> surprise-adjacent
-    20: 4,  # realization
-    24: 4,  # surprise
+    7: 4,  # curiosity
+    22: 4,  # realization
+    26: 4,  # surprise
     # Disgust cluster
-    8: 5,  # confusion -> disgust-adjacent
-    12: 5,  # disgust
-    26: 5,  # disappointment
+    6: 5,  # confusion -> disgust-adjacent
+    8: 5,  # desire -> mapped to disgust (closest remaining)
+    11: 5,  # disgust
     # Neutral
-    27: 6,  # neutral (index used by simplified split)
-    # Remaining: desire(4), gratitude(1) -> joy; disapproval(21) -> anger
-    1: 0,  # gratitude -> joy
-    4: 0,  # desire -> joy
-    21: 2,  # disapproval -> anger
+    27: 6,  # neutral
 }
 
 MACRO_LABEL_NAMES: dict[int, str] = {

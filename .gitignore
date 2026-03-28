@@ -1,5 +1,6 @@
 models/sentiment_model/
 data/raw/*.csv
+data/raw/checksums.json
 .env
 mlruns/
 venv/
