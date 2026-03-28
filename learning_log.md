@@ -320,3 +320,52 @@
 - Next step: Day 4 — Build FastAPI `/predict` endpoint + Pydantic validation + rate limiting.
 
 ---
+
+## Day 4 — 2026-03-28 — Production FastAPI stack with rate limiting & Prometheus metrics
+> Project: B1-HuggingFace-FastAPI
+
+### What was done
+- Created `src/api/app.py` following Full Production v5 Pattern.
+- Wired SlowAPI rate limiter (30/minute on `/predict`), CORS, TrustedHost, and 1 MB Content-Length guard middleware in the exact spec order.
+- Exposed Prometheus `/metrics` via `prometheus-fastapi-instrumentator`.
+- Added pandera single-row DataFrame validation before inference in `/predict`.
+- Registered `PredictionError` → HTTP 422 exception handler.
+- Added `GET /api/v1/health`, `POST /api/v1/predict`, `GET /api/v1/model_info` endpoints.
+- Wrote `tests/test_api.py` (8 tests, all mocked); full suite: 59 passed, 93% coverage.
+
+### Why it was done
+- Serving a trained model requires a production-grade HTTP layer with security controls (rate limit, CORS, payload cap) and observability (metrics, health check).
+
+### How it was done
+- `Limiter(key_func=get_remote_address)` + `@limiter.limit("30/minute")` on the predict route.
+- Middleware stack added via `app.add_middleware()` — CORS first, then TrustedHost, then a custom `@app.middleware("http")` for Content-Length.
+- `Instrumentator().instrument(app).expose(app)` wires Prometheus at startup.
+- `@app.on_event("startup")` loads `SentimentClassifier` from `models/sentiment_model`; sets `model_loaded = True` on success, logs error on failure.
+- TestClient fixture patches `SentimentClassifier` so tests run in < 15 s without model weights.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| SlowAPI | Native FastAPI rate-limiting, minimal code, Redis-optional | fastapi-limiter | Requires Redis; overkill for single-instance |
+| prometheus-fastapi-instrumentator | One-liner Prometheus instrumentation, auto-labels HTTP metrics | manual Counter/Histogram | Verbose, error-prone, no auto-labelling |
+| pandera DataFrame validation | Validates the exact same schema contract used in training pipeline | plain if-checks | Inconsistent with training-time validation; harder to extend |
+| TestClient (httpx) | Synchronous ASGI test client, no server process needed | real uvicorn + requests | Slower, flaky port binding, unnecessary |
+
+### Definitions (plain English)
+- **Rate limiting**: Capping how many requests a single IP can send per time window — prevents abuse and protects compute.
+- **CORS (Cross-Origin Resource Sharing)**: Browser security rule that blocks JS from calling an API on a different domain unless the API explicitly allows it.
+- **Prometheus**: Time-series metrics system — apps expose a `/metrics` endpoint; Prometheus scrapes it on a schedule.
+- **Instrumentator**: Middleware that auto-records request count, latency histogram, and status codes for every FastAPI route.
+- **Pandera**: Library that enforces a declared schema on a pandas DataFrame and raises an error if the data violates it.
+
+### Real-world use case
+- This exact stack (SlowAPI + Prometheus + health/predict/model_info) is the standard pattern at ML-serving startups (Hugging Face Inference API, Replicate) — every endpoint needs a `/health` for load-balancer probes and `/metrics` for SRE dashboards.
+
+### How to remember it
+- **CORS + TrustedHost + Content-Length + Prometheus = CTCP**: four guards every production API needs before its first real route.
+
+### Status
+- [x] Done
+- Next step: Day 5 — Gradio demo UI + Docker containerisation + push to HuggingFace Spaces.
+
+---
